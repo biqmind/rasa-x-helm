@@ -1,0 +1,23 @@
+---
+# Source: rasa-x/templates/duckling-service.yaml
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: my-rasa-rasa-x-duckling
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: duckling
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: "TCP"
+  selector:
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/component: duckling

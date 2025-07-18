@@ -1,0 +1,80 @@
+---
+# Source: rasa-x/templates/db-migration-service-deployment.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-rasa-db-migration-service
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: db-migration-service
+spec:
+  serviceName: "default"
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rasa-x
+      app.kubernetes.io/instance: my-rasa
+      app.kubernetes.io/component: db-migration-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rasa-x
+        app.kubernetes.io/instance: my-rasa
+        app.kubernetes.io/component: db-migration-service
+    spec:
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
+      automountServiceAccountToken: false
+      
+      
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: db-migration-service
+        image: "rasa/rasa-x:1.4.0"
+        imagePullPolicy: Always
+        args:
+          - python
+          - -m
+          - rasax.community.services.db_migration_service
+        ports:
+          - name: "http"
+            containerPort: 8000
+            protocol: "TCP"
+        livenessProbe:
+          initialDelaySeconds: 10
+          httpGet:
+            path: "/health"
+            port: "http"
+            scheme: HTTP
+        readinessProbe:
+          initialDelaySeconds: 10
+          httpGet:
+            path: "/health"
+            port: "http"
+            scheme: HTTP
+        env:
+        - name: "RASA_TELEMETRY_ENABLED"
+          value: "false"
+        - name: "SELF_PORT"
+          value: "8000"
+        - name: "RUN_DATABASE_MIGRATION_AS_SEPARATE_SERVICE"
+          value: "true"
+        - name: "DB_USER"
+          value: "postgres"
+        - name: "DB_HOST"
+          value: "my-rasa-postgresql"
+        - name: "DB_PORT"
+          value: "5432"
+        - name: "DB_DATABASE"
+          value: "rasa"
+        - name: "DB_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: "my-rasa-postgresql"
+              key: postgresql-password

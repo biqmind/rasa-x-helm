@@ -1,0 +1,81 @@
+---
+# Source: rasa-x/templates/nginx-conf-configmap.yaml
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "my-rasa-nginx-standard-conf"
+  labels:
+    
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+
+data:
+  nginx.conf: "worker_processes  auto;\nworker_rlimit_nofile 10000;\nerror_log /dev/stdout info;\npid \"/etc/nginx/nginx.pid\";\n\nevents {\n    worker_connections 4096;\n}\n\n\nhttp {\n    include       /etc/nginx/mime.types;\n    default_type  application/octet-stream;\n\n    log_format  main  '$remote_addr - $remote_user [$time_local] \"$request\" '\n                      '$status $body_bytes_sent \"$http_referer\" '\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"';\n\n    access_log /dev/stdout;\n\n    client_body_temp_path  \"/etc/nginx/client_body\" 1 2;\n    proxy_temp_path        \"/etc/nginx/proxy\" 1 2;\n    fastcgi_temp_path      \"/etc/nginx/fastcgi\" 1 2;\n    scgi_temp_path         \"/etc/nginx/scgi\" 1 2;\n    uwsgi_temp_path        \"/etc/nginx/uwsgi\" 1 2;\n\n    sendfile        on;\n\n    keepalive_timeout  65;\n\n    gzip on;\n    gzip_vary on;\n    gzip_min_length 1400;\n    gzip_proxied expired no-cache no-store private auth;\n    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/x-javascript application/xml;\n\n    include /etc/nginx/conf.d/*.nginx;\n\n    # allow the server to close connection on non responding client, this will free up memory\n    reset_timedout_connection on;\n\n    # request timed out -- default 60\n    client_body_timeout 10;\n\n    # if client stop responding, free up memory -- default 60\n    send_timeout 2;\n\n    # server will close connection after this time -- default 75\n    proxy_read_timeout 3600;\n\n    # number of requests client can make over keep-alive -- for testing environment\n    keepalive_requests 100000;\n\n    # whether the connection with a proxied server should be closed\n    # when a client closes the connection without waiting for a response\n    # default is off\n    proxy_ignore_client_abort on;\n    server_tokens off;\n\n    # Disallow indexing\n    add_header X-Robots-Tag none;\n}\n"
+  ssl.conf.template: "# This is an example SSL configuration\n# Uncomment and adapt for your deployment as needed\n# listen                  8443 ssl;\n\n# # server_name           example.com;\n# ssl_certificate         /etc/nginx/certs/fullchain.pem;\n# ssl_certificate_key     /etc/nginx/certs/privkey.pem;\n"
+  rasax.nginx.template: |
+    upstream docker-rasax-api {
+      server ${RASA_X_HOST} max_fails=0;
+    }
+    
+    server {
+      listen            8080;
+    #  include           /etc/nginx/conf.d/ssl.conf; # uncomment if using ssl; see ssl.conf.template for example configuration
+    
+      keepalive_timeout   30;
+      client_max_body_size 800M;
+    
+      location /robots.txt {
+        return 200 "User-agent: *\nDisallow: /\n";
+      }
+    
+      location /api/ws {
+        # following https://www.serverlab.ca/tutorials/linux/web-servers-linux/how-to-configure-nginx-for-websockets/
+        # This directive converts the incoming connection to HTTP 1.1, which is
+        # required to support WebSockets. The older HTTP 1.0 spec does not provide support
+        # for WebSockets, and any requests using HTTP 1.0 will fail.
+        proxy_http_version 1.1;
+        # Converts the proxied connection to type Upgrade. WebSockets only communicate on
+        # Upgraded connections.
+        proxy_set_header Upgrade $http_upgrade;
+        # Ensure the Connection header value is upgrade
+        proxy_set_header Connection "upgrade";
+    
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+        proxy_pass http://docker-rasax-api/api/ws;
+      }
+    
+      location / {
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+        proxy_pass http://docker-rasax-api/;
+      }
+    
+      # pass chat message to production service if environment query parameter
+      # is set to `production`, or that parameter isn't set
+      location /api/chat$ {
+        if ($arg_environment = "") {
+            rewrite ^ /core/webhooks/rasa/webhook last;
+        }
+        if ($arg_environment = "production") {
+            rewrite ^ /core/webhooks/rasa/webhook last;
+        }
+        proxy_pass http://docker-rasax-api/api/chat;
+      }
+    
+      location /nginx_status {
+        stub_status on;
+    
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+      }
+    }

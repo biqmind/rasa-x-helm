@@ -1,0 +1,174 @@
+---
+# Source: rasa-x/templates/rasa-x-deployment.yaml
+apiVersion: "apps/v1"
+kind: "Deployment"
+metadata:
+  name: my-rasa-rasa-x
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: rasa-x
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rasa-x
+      app.kubernetes.io/instance: my-rasa
+      app.kubernetes.io/component: rasa-x
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rasa-x
+        app.kubernetes.io/instance: my-rasa
+        app.kubernetes.io/component: rasa-x
+      annotations:
+        checksum/rasa-config: dadffc02390322e4e5d5592660b3f444772497552ffcbcf5a437b53a841ea2e1
+        checksum/rasa-x-config: 501a575ae4c13e914f737433824abd410e444c806d865c3d60ae04c2bfc0fcd5
+        checksum/rasa-secret: 75d433fb157f073545c80df3e395042fe6d6148095bfe8f4fc6441d0343c8a5b
+    spec:
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
+      automountServiceAccountToken: false
+      
+      
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: rasa-x
+        image: "rasa/rasa-x:1.4.0"
+        imagePullPolicy: Always
+        ports:
+          - name: "http"
+            containerPort: 5002
+            protocol: "TCP"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: "http"
+            scheme: HTTP
+          initialDelaySeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: "http"
+            scheme: HTTP
+          initialDelaySeconds: 10
+          failureThreshold: 10
+        env:
+        - name: "SELF_PORT"
+          value: "5002"
+        - name: "LOCAL_MODE" # This variable doesn't do anything anymore in Rasa X 0.28 and later
+          value: "false"
+        - name: "RASA_X_HOST"
+          value: http://my-rasa-rasa-x-rasa-x.default.svc:5002
+        - name: "RASA_MODEL_DIR"
+          value: "/app/models"
+        - name: "RUN_EVENT_CONSUMER_AS_SEPARATE_SERVICE"
+          value: "true"
+        - name: "RABBITMQ_QUEUE"
+          value: "rasa_production_events"
+        - name: "RABBITMQ_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: "my-rasa-rabbit"
+              key: "rabbitmq-password"
+        - name: "REDIS_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: "my-rasa-redis"
+              key: "redis-password"
+        - name: "PASSWORD_SALT"
+          valueFrom:
+            secretKeyRef:
+              name: my-rasa-rasa
+              key: "passwordSalt"
+        - name: "RASA_X_USER_ANALYTICS"
+          value: "0"
+        - name: "SANIC_RESPONSE_TIMEOUT"
+          value: "3600"
+        - name: "JWT_SECRET"
+          valueFrom:
+            secretKeyRef:
+              name: my-rasa-rasa
+              key: "jwtSecret"
+        - name: "RASA_TOKEN"
+          valueFrom:
+            secretKeyRef:
+              name: my-rasa-rasa
+              key: "rasaToken"
+        - name: "RASA_X_TOKEN"
+          valueFrom:
+            secretKeyRef:
+              name: my-rasa-rasa
+              key: "rasaXToken"
+        - name: "RASA_X_USERNAME"
+          value: "admin"
+        - name: "RASA_X_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: my-rasa-rasa
+              key: "initialPassword"
+        - name: "RUN_DATABASE_MIGRATION_AS_SEPARATE_SERVICE"
+          value: "true"
+        - name: "DB_USER"
+          value: "postgres"
+        - name: "DB_HOST"
+          value: "my-rasa-postgresql"
+        - name: "DB_PORT"
+          value: "5432"
+        - name: "DB_DATABASE"
+          value: "rasa"
+        - name: "DB_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: "my-rasa-postgresql"
+              key: postgresql-password
+        
+        volumeMounts:
+        - mountPath: "/app/environments.yml"
+          subPath: "environments.yml"
+          name: "environments"
+        - mountPath: "/app/endpoints.yml"
+          subPath: "endpoints.yml"
+          name: "rasa-configuration"
+        - mountPath: "/app/credentials.yml"
+          subPath: "credentials.yml"
+          name: "rasa-configuration"
+        - mountPath: "/app/models"
+          name: "rasa-x-claim"
+          subPath: "models"
+        - mountPath: "/app/logs"
+          name: "rasa-x-claim"
+          subPath: "logs"
+        - mountPath: "/app/auth"
+          name: "rasa-x-claim"
+          subPath: "auth"
+        - mountPath: "/app/git"
+          name: "rasa-x-claim"
+          subPath: "git"
+      volumes:
+      - name: "environments"
+        configMap:
+          name: "my-rasa-rasa-x-configuration-files"
+          items:
+          - key: "environments"
+            path: "environments.yml"
+      - name: "rasa-configuration"
+        configMap:
+          name: "my-rasa-rasa-configuration-files"
+          items:
+          - key: "rasa-endpoints"
+            path: "endpoints.yml"
+          - key: "rasa-credentials"
+            path: "credentials.yml"
+      - name: "rasa-x-claim"
+        persistentVolumeClaim:
+          claimName: my-rasa-rasa-x-claim

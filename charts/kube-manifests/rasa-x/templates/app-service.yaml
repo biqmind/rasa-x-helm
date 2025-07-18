@@ -1,0 +1,29 @@
+---
+# Source: rasa-x/templates/app-service.yaml
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: my-rasa-rasa-x-app
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: app
+spec:
+  ports:
+  - port: 5055
+    targetPort: 5055
+    protocol: "TCP"
+    name: "http"
+    # workaround for nginx which curls on port 80 to check availability
+  - port: 80
+    targetPort: 80
+    protocol: "TCP"
+    name: "workaround"
+  selector:
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/component: app

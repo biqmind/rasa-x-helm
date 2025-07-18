@@ -1,0 +1,15 @@
+---
+# Source: rasa-x/templates/nginx-configmap.yaml
+apiVersion: "v1"
+data:
+  agree: "openshift"
+kind: "ConfigMap"
+metadata:
+  name: "my-rasa-agreement"
+  labels:
+    
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm

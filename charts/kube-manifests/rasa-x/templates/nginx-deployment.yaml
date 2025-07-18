@@ -1,0 +1,107 @@
+---
+# Source: rasa-x/templates/nginx-deployment.yaml
+apiVersion: "apps/v1"
+kind: "Deployment"
+metadata:
+  name: my-rasa-nginx
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: nginx
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rasa-x
+      app.kubernetes.io/instance: my-rasa
+      app.kubernetes.io/component: nginx
+  template:
+    metadata:
+      annotations:
+        checksum/nginx-config: 1471eb9395a7a463912654b608aebb1e1f5d8798df9cc4788fbf45061e557a73
+      labels:
+        app.kubernetes.io/name: rasa-x
+        app.kubernetes.io/instance: my-rasa
+        app.kubernetes.io/component: nginx
+    spec:
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
+      automountServiceAccountToken: false
+      
+      
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - name: rasa-x
+        image: "nginx:1.19"
+        imagePullPolicy: Always
+        command:
+        args:
+        ports:
+        - name: "http"
+          containerPort: 8080
+          protocol: "TCP"
+        livenessProbe:
+          exec:
+            command:
+              - curl
+              - localhost:8080/nginx_status
+          initialDelaySeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          exec:
+            command:
+              - curl
+              - localhost:8080/nginx_status
+          initialDelaySeconds: 10
+        env:
+        - name: "NGINX_ENVSUBST_TEMPLATE_SUFFIX"
+          value: ".template"
+        - name: "RASA_PRODUCTION_URL"
+          value: "http://my-rasa-rasa-x-rasa-production.default.svc:5005"
+        - name: "RASA_X_HOST"
+          value: "my-rasa-rasa-x-rasa-x.default.svc:5002"
+        volumeMounts:
+        - mountPath: "/etc/nginx/terms/agree.txt"
+          name: "agreement"
+          subPath: "agree.txt"
+        - name: "nginx-conf"
+          mountPath: "/etc/nginx/nginx.conf"
+          subPath: "nginx.conf"
+        - name: "nginx-ssl-conf"
+          mountPath: "/etc/nginx/templates/ssl.conf.template"
+          subPath: "ssl.conf.template"
+        - name: "rasax-nginx"
+          mountPath: "/etc/nginx/templates/rasax.nginx.template"
+          subPath: "rasax.nginx.template"
+        
+      volumes:
+      - configMap:
+          items:
+          - key: "agree"
+            path: "agree.txt"
+          name: "my-rasa-agreement"
+        name: "agreement"
+      - configMap:
+          items:
+          - key: "nginx.conf"
+            path: "nginx.conf"
+          name: "my-rasa-nginx-standard-conf"
+        name: "nginx-conf"
+      - configMap:
+          items:
+          - key: "ssl.conf.template"
+            path: "ssl.conf.template"
+          name: "my-rasa-nginx-standard-conf"
+        name: "nginx-ssl-conf"
+      - name: rasax-nginx
+        configMap:
+          items:
+          - key: "rasax.nginx.template"
+            path: "rasax.nginx.template"
+          name: "my-rasa-nginx-standard-conf"

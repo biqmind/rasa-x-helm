@@ -1,0 +1,57 @@
+---
+# Source: rasa-x/templates/rasa-config-files-configmap.yaml
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "my-rasa-rasa-configuration-files"
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+data:
+  rasa-credentials: |
+    rasa:
+      url: http://my-rasa-rasa-x-rasa-x.default.svc:5002/api
+  rasa-endpoints: |
+    models:
+      url: ${RASA_MODEL_SERVER}
+      token: ${RASA_X_TOKEN}
+      wait_time_between_pulls: 10
+    tracker_store:
+      type: sql
+      dialect: "postgresql"
+      url: my-rasa-postgresql
+      port: 5432
+      username: postgres
+      password: ${DB_PASSWORD}
+      db: ${DB_DATABASE}
+      login_db: rasa
+    event_broker:
+      type: "pika"
+      url: "my-rasa-rabbit"
+      username: "user"
+      password: ${RABBITMQ_PASSWORD}
+      port: 5672
+      queues:
+      - ${RABBITMQ_QUEUE}
+      
+    action_endpoint:
+      url: "http://my-rasa-rasa-x-app.default.svc:5055/webhook"
+      token:  ""
+      enable_selective_domain: false
+    lock_store:
+      type: "redis"
+      url: my-rasa-redis-master
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      db: 1
+    cache:
+      type: "redis"
+      url: my-rasa-redis-master
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      db: 2
+      key_prefix: "rasax_cache"

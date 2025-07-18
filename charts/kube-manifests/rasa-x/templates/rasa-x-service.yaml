@@ -1,0 +1,25 @@
+---
+# Source: rasa-x/templates/rasa-x-service.yaml
+apiVersion: "v1"
+kind: "Service"
+metadata:
+  name: my-rasa-rasa-x-rasa-x
+  labels:
+    helm.sh/chart: rasa-x-5.0.0
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/managed-by: Helm
+    
+    app.kubernetes.io/component: rasa-x
+spec:
+  type: "ClusterIP"
+  ports:
+  - port: 5002
+    targetPort: http
+    protocol: "TCP"
+    name: "http"
+  selector:
+    app.kubernetes.io/name: rasa-x
+    app.kubernetes.io/instance: my-rasa
+    app.kubernetes.io/component: rasa-x
