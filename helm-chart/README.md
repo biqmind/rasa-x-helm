@@ -1,2 +1,0 @@
-# Rasa Enterprise Helm Chart
-
